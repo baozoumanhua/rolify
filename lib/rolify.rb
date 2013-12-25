@@ -14,22 +14,22 @@ module Rolify
   def rolify(options = {})
     include Role
     extend Dynamic if Rolify.dynamic_shortcuts
-
+    
     options.reverse_merge!({:role_cname => 'Role'})
-    self.role_cname = options[:role_cname]
-    self.role_table_name = self.role_cname.tableize.gsub(/\//, "_")
-
-    default_join_table = "#{self.to_s.tableize.gsub(/\//, "_")}_#{self.role_table_name}"
-    options.reverse_merge!({:role_join_table_name => default_join_table})
-    self.role_join_table_name = options[:role_join_table_name]
 
     rolify_options = { :class_name => options[:role_cname].camelize }
-    rolify_options.merge!({ :join_table => self.role_join_table_name }) if Rolify.orm == "active_record"
-    rolify_options.merge!(options.reject{ |k,v| ![ :before_add, :after_add, :before_remove, :after_remove ].include? k.to_sym })
+
+    if Rolify.orm == "active_record"
+      rolify_options.merge!({ :foreign_key => options[:foreign_key] }) if options[:foreign_key].present?
+      rolify_options.merge!({ :join_table => options[:join_table] || "#{self.to_s.tableize}_#{options[:role_cname].tableize}" })
+      rolify_options.merge!(options.select{ |k,v| [:before_add, :after_add, :before_remove, :after_remove].include? k.to_sym })
+    end
 
     has_and_belongs_to_many :roles, rolify_options
 
-    self.adapter = Rolify::Adapter::Base.create("role_adapter", self.role_cname, self.name)
+    self.adapter = Rolify::Adapter::Base.create("role_adapter", options[:role_cname], self.name)
+    self.role_cname = options[:role_cname]
+
     load_dynamic_methods if Rolify.dynamic_shortcuts
   end
 
